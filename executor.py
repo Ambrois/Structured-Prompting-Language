@@ -31,7 +31,7 @@ def _format_value(val: Any) -> str:
 
 def _format_history(history: List[Dict[str, Any]]) -> str:
     if not history:
-        return "None"
+        return ""
     lines: List[str] = []
     for msg in history:
         role = msg.get("role", "assistant")
@@ -40,18 +40,7 @@ def _format_history(history: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-def _build_prompt(
-    st: Step, resolved_inputs: Dict[str, Any], history: List[Dict[str, Any]] | None
-) -> str:
-    if resolved_inputs:
-        inputs_section = "\n".join(
-            [f"- {k}: {_format_value(v)}" for k, v in resolved_inputs.items()]
-        )
-    else:
-        inputs_section = "None"
-
-    history_section = _format_history(history or [])
-
+def _build_required_outputs_section(st: Step) -> str:
     output_lines: List[str] = []
     if st.as_vars:
         if st.out_items and len(st.out_items) == len(st.as_vars):
@@ -65,33 +54,46 @@ def _build_prompt(
         else:
             for var in st.as_vars:
                 output_lines.append(f"- {var}")
-    else:
-        if st.out_items:
-            for desc in st.out_items:
-                output_lines.append(f"- output: {desc}")
+    return "\n".join(output_lines) if output_lines else "None"
+
+
+def _build_prompt(
+    st: Step, resolved_inputs: Dict[str, Any], history: List[Dict[str, Any]] | None
+) -> str:
+    has_inputs = bool(resolved_inputs)
+    has_history = bool(history)
+    has_out = st.out_items is not None
+    has_as = bool(st.as_vars)
+
+    blocks: List[str] = []
+    instruction = st.text.strip()
+    has_other_blocks = has_inputs or has_history or has_out or has_as
+    if instruction:
+        if has_other_blocks:
+            blocks.append(f"Instruction:\n{instruction}")
         else:
-            output_lines.append("- output")
+            blocks.append(instruction)
 
-    outputs_section = "\n".join(output_lines) if output_lines else "None"
+    if has_history:
+        history_section = _format_history(history or [])
+        if history_section:
+            blocks.append(f"Chat history:\n{history_section}")
 
-    history_block = ""
-    if history is not None:
-        history_block = (
-            "Chat history (previous messages):\n"
-            f"{history_section}\n\n"
+    if has_inputs:
+        inputs_section = "\n".join(
+            [f"- {k}: {_format_value(v)}" for k, v in resolved_inputs.items()]
         )
+        blocks.append(f"Inputs:\n{inputs_section}")
 
-    return (
-        "You are executing a DSL step.\n\n"
-        "Instruction:\n"
-        f"{st.text}\n\n"
-        f"{history_block}"
-        "Inputs (resolved):\n"
-        f"{inputs_section}\n\n"
-        "Required outputs:\n"
-        f"{outputs_section}\n\n"
-        "Return JSON only. No markdown. No code fences."
-    )
+    if has_as:
+        outputs_section = _build_required_outputs_section(st)
+        blocks.append(f"Required outputs:\n{outputs_section}")
+        blocks.append("Return JSON only.")
+    elif has_out:
+        desc = st.out_items[0] if st.out_items else ""
+        blocks.append(f"Output:\n{desc}" if desc else "Output:")
+
+    return "\n\n".join(blocks).strip()
 
 
 def _coerce_output_text(parsed_json: Any) -> str:
@@ -156,9 +158,9 @@ def execute_steps_stub(
             for var, val in output.items():
                 context[var] = val
         else:
-            output = {"output": f"stub output for step {st.index}"}
-            raw_response = json.dumps(output)
-            non_var_outputs.append(output["output"])
+            output = f"stub output for step {st.index}"
+            raw_response = output
+            non_var_outputs.append(output)
 
         logs.append(
             {
@@ -203,19 +205,19 @@ def execute_steps(
         prompt = _build_prompt(st, resolved_inputs, history_ctx)
         raw_response = call_gemini(prompt, model=model, timeout_s=timeout_s)
 
-        try:
-            parsed = json.loads(raw_response)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"Step {st.index} (line {st.start_line_no}): invalid JSON response: {raw_response}"
-            ) from e
-
-        if not isinstance(parsed, dict):
-            raise ValueError(
-                f"Step {st.index} (line {st.start_line_no}): expected JSON object, got {type(parsed).__name__}"
-            )
-
         if st.as_vars:
+            try:
+                parsed = json.loads(raw_response)
+            except json.JSONDecodeError as e:
+                raise ValueError(
+                    f"Step {st.index} (line {st.start_line_no}): invalid JSON response: {raw_response}"
+                ) from e
+
+            if not isinstance(parsed, dict):
+                raise ValueError(
+                    f"Step {st.index} (line {st.start_line_no}): expected JSON object, got {type(parsed).__name__}"
+                )
+
             missing = [v for v in st.as_vars if v not in parsed]
             if missing:
                 raise ValueError(
@@ -223,8 +225,10 @@ def execute_steps(
                 )
             for var in st.as_vars:
                 context[var] = parsed[var]
+            parsed_json: Any = parsed
         else:
-            non_var_outputs.append(_coerce_output_text(parsed))
+            parsed_json = raw_response
+            non_var_outputs.append(raw_response)
 
         logs.append(
             {
@@ -239,7 +243,7 @@ def execute_steps(
                 "prompt": prompt,
                 "history_included": history_ctx is not None,
                 "raw_response": raw_response,
-                "parsed_json": parsed,
+                "parsed_json": parsed_json,
             }
         )
 

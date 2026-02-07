@@ -1,0 +1,35 @@
+Case: no directives
+Write a short greeting.
+
+/THEN Case: /AS only
+Make a short token.
+/AS a
+
+/THEN Case: /OUT only
+Write a short label.
+/OUT short label
+
+/THEN Case: /FROM only
+Echo the input.
+/FROM @a
+
+/THEN Case: /FROM + /OUT
+Summarize the input.
+/FROM @a
+/OUT short summary
+
+/THEN Case: /FROM + /AS
+Transform the input.
+/FROM @a
+/AS c
+
+/THEN Case: /OUT + /AS
+Create two parts.
+/OUT part one, part two
+/AS p1, p2
+
+/THEN Case: /FROM + /OUT + /AS
+Combine the parts.
+/FROM @p1, @p2
+/OUT combined
+/AS combined

@@ -53,29 +53,32 @@ Inputs
 - Future (not now): function-like inputs @fn(arg) and NL references via smaller model over history.
 
 Prompt format (proposed)
-You are executing a DSL step.
-
-Instruction:
-{step.text}
-
-Inputs (resolved):
-{list of @var: value}
-
-Required outputs:
-{list of /OUT descriptions paired with /AS variable names if present}
-
-Return JSON only (no markdown, no code fences).
+- Instruction block:
+  - If it is the only block, emit just the instruction text (no label).
+  - Otherwise emit:
+    Instruction:
+    {step.text}
+- Optional blocks (omit if empty):
+  - Chat history:
+    {role: message lines}
+  - Inputs:
+    {list of @var: value}
+  - Output (only when /OUT exists and /AS is absent):
+    {single /OUT description}
+  - Required outputs (only when /AS exists):
+    {list of /OUT descriptions paired with /AS variable names if present}
+    Return JSON only.
 
 Output contract
 - If /AS exists:
   - Gemini must return JSON object with keys = /AS vars.
 - If /AS is absent:
-  - Gemini can return any JSON object; store in logs only (no variables).
-  - For chat display, prefer parsed["output"] if present, else pretty-print full JSON.
+  - Gemini returns plain text (no JSON required).
+  - Store raw response in logs and display it directly.
 
 Error handling
-- JSON parse failure -> hard error and stop.
-- Missing required keys -> hard error and stop.
+- JSON parse failure (only when /AS exists) -> hard error and stop.
+- Missing required keys (when /AS exists) -> hard error and stop.
 - Retry logic for Gemini HTTP 503 only: exponential backoff, base 1s, max 3 retries.
 
 Execution results
@@ -96,7 +99,7 @@ Modes
 - Main UI shows variables only; parsed steps/logs are available via per-message metadata.
 - Executor selection toggle: Use Gemini (default) or stub executor
 - If /NEXT appears in the DSL input, show a warning to use /THEN instead.
-- Ctrl+Enter is captured globally to submit even if input hasn't changed (custom component).
+- Ctrl+Enter relies on Streamlit's default form submit behavior (no custom component).
 
 2. Raw LLM mode
 - User sends plain text
