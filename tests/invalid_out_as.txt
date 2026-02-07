@@ -1,0 +1,3 @@
+Bad case
+/OUT only one
+/AS a, b

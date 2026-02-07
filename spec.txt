@@ -92,10 +92,10 @@ Future note
 Modes
 1. Parse + Execute (default)
 - Input DSL (paste)
-- Show parsed steps (JSON)
 - Run executor
-- Show per-step logs and final variables
+- Main UI shows variables only; parsed steps/logs are available via per-message metadata.
 - Executor selection toggle: Use Gemini (default) or stub executor
+- Hint under DSL input: use /THEN (not /NEXT) to start a new step
 
 2. Raw LLM mode
 - User sends plain text

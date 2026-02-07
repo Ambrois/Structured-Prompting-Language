@@ -1,0 +1,3 @@
+Missing var
+/FROM @missing
+/OUT result

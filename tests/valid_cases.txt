@@ -1,0 +1,16 @@
+Case: inline THEN
+/OUT ok
+
+/THEN second inline step
+/OUT ok
+
+/THEN Step with vars
+/OUT x result, y result
+/AS @x, y
+
+/THEN Use var with non-var in FROM
+/FROM @x, literal input
+/OUT computed
+
+/THEN No FROM should include history
+/OUT history-aware output
