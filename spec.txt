@@ -1,0 +1,128 @@
+GOAL
+Build a 3-layer system (Parser -> Executor -> Interface) to parse a DSL, execute it via Gemini, and provide a Streamlit UI with persistence.
+
+1) PARSER LAYER
+Purpose
+- Convert DSL text into structured steps.
+- No side effects.
+
+Input
+- Raw DSL text (string).
+
+Output
+- List[Step] with fields:
+  - index (int)
+  - start_line_no (int)
+  - text (string)
+  - from_items (optional list of strings)
+  - out_items (optional list of strings)
+  - as_vars (optional list of strings, sigil removed)
+  - directives (list of {name, items, line_no})
+
+Behavior
+- Steps separated by /THEN.
+- /THEN can have inline text, treated as first NL line of the new step.
+- Directives recognized: /FROM, /OUT, /AS, /THEN.
+- Payload syntax: only /CMD payload... (no parenthesis form).
+- /AS accepts bare variable names or @var; sigil is stripped.
+- /OUT + /AS rule enforcement:
+  - If /AS has 0 or 1 vars, /OUT must be singular if present.
+  - If /AS has N>1, /OUT must exist and have N items.
+
+2) EXECUTOR LAYER (GEMINI)
+Purpose
+- Execute parsed steps against a Gemini model.
+- Maintain variable context across steps.
+
+Inputs
+- Parsed steps
+- Empty context dict to start
+- Gemini API key from GEMINI_API_KEY
+- Request timeout configurable (UI) or via GEMINI_TIMEOUT env var
+
+/ FROM handling
+- Only items starting with @ are treated as variable references.
+- Variable refs must be plain @name (no parentheses). @fn(...) is ignored for now.
+- If /FROM @var but @var missing in context -> hard error and stop.
+- If /FROM item does not start with @:
+  - Ignore for now.
+  - Add a log note:
+    NOTE: Non-variable /FROM items ignored (future: functions + NL retrieval).
+- If /FROM is not specified at all, include previous chat history as context for the step.
+- Future (not now): function-like inputs @fn(arg) and NL references via smaller model over history.
+
+Prompt format (proposed)
+You are executing a DSL step.
+
+Instruction:
+{step.text}
+
+Inputs (resolved):
+{list of @var: value}
+
+Required outputs:
+{list of /OUT descriptions paired with /AS variable names if present}
+
+Return JSON only (no markdown, no code fences).
+
+Output contract
+- If /AS exists:
+  - Gemini must return JSON object with keys = /AS vars.
+- If /AS is absent:
+  - Gemini can return any JSON object; store in logs only (no variables).
+  - For chat display, prefer parsed["output"] if present, else pretty-print full JSON.
+
+Error handling
+- JSON parse failure -> hard error and stop.
+- Missing required keys -> hard error and stop.
+- No retry logic.
+
+Execution results
+- Per step:
+  - raw response
+  - parsed JSON (if valid)
+  - notes (ignored /FROM, etc.)
+- Update variables only when /AS exists.
+
+Future note
+- Add optional system prompt support later.
+
+3) INTERFACE LAYER (STREAMLIT)
+Modes
+1. Parse + Execute (default)
+- Input DSL (paste)
+- Show parsed steps (JSON)
+- Run executor
+- Show per-step logs and final variables
+- Executor selection toggle: Use Gemini (default) or stub executor
+
+2. Raw LLM mode
+- User sends plain text
+- Direct call to Gemini
+- Display raw response
+- Raw LLM messages are persisted in chat history
+
+
+Chat behavior in Parse + Execute mode
+- Each output from a step without /AS becomes a separate assistant message.
+- Steps that create variables (/AS present) are not included in response.
+- Output should be pretty printed.
+
+4) PERSISTENCE
+- Persist variables across restarts.
+- Persist chat history across restarts.
+- Support multiple chats with create/save/delete controls.
+
+Likely mechanism
+- JSON files in project directory, e.g.
+  - state/chats.json (authoritative)
+  - state/vars.json and state/chat_history.json may exist for legacy bootstrap
+
+Multi-chat behavior
+- Each chat has its own variables and history.
+- UI allows selecting the active chat, creating a new chat, and deleting a chat via a per-chat menu.
+- Saving is automatic on any change.
+- Per-chat menu supports rename and manual reorder (move up/down).
+
+OPEN DECISIONS
+- None currently.

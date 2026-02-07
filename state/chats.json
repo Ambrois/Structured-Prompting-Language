@@ -1,0 +1,62 @@
+{
+  "active_chat_id": "chat-6c9fceb0",
+  "chats": [
+    {
+      "id": "chat-6c9fceb0",
+      "name": "Default",
+      "history": [
+        {
+          "role": "user",
+          "content": "adsfasdf",
+          "mode": "dsl"
+        },
+        {
+          "role": "assistant",
+          "content": "null",
+          "mode": "dsl"
+        },
+        {
+          "role": "user",
+          "content": "adsfasdf",
+          "mode": "dsl"
+        },
+        {
+          "role": "assistant",
+          "content": "{\n  \"error\": {\n    \"message\": \"Invalid or unrecognized instruction: 'adsfasdf'. Please provide a valid DSL instruction.\",\n    \"type\": \"InvalidInstructionError\"\n  }\n}",
+          "mode": "dsl"
+        },
+        {
+          "role": "user",
+          "content": "sorry about that. What is today's date?",
+          "mode": "dsl"
+        },
+        {
+          "role": "assistant",
+          "content": "Today's date is June 23, 2024.",
+          "mode": "dsl"
+        },
+        {
+          "role": "user",
+          "content": "pee pee poop poo\n\nWhat's going on",
+          "mode": "dsl"
+        },
+        {
+          "role": "assistant",
+          "content": "{\n  \"error\": {\n    \"message\": \"Invalid or unrecognized instruction: 'pee pee poop poo'. Please provide a valid DSL instruction.\",\n    \"type\": \"InvalidInstructionError\"\n  }\n}",
+          "mode": "dsl"
+        },
+        {
+          "role": "user",
+          "content": "testing testing",
+          "mode": "dsl"
+        },
+        {
+          "role": "assistant",
+          "content": "{\n  \"error\": {\n    \"message\": \"Invalid or unrecognized instruction: 'testing testing'. Please provide a valid DSL instruction.\",\n    \"type\": \"InvalidInstructionError\"\n  }\n}",
+          "mode": "dsl"
+        }
+      ],
+      "vars": {}
+    }
+  ]
+}

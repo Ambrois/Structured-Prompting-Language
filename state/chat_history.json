@@ -1,0 +1,95 @@
+[
+  {
+    "role": "user",
+    "content": "hi"
+  },
+  {
+    "role": "assistant",
+    "content": "hello"
+  },
+  {
+    "role": "user",
+    "content": "asdf",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "stub output for step 0",
+    "mode": "dsl"
+  },
+  {
+    "role": "user",
+    "content": "asdf",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "stub output for step 0",
+    "mode": "dsl"
+  },
+  {
+    "role": "user",
+    "content": "testing, please say \"hi\"",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "hi",
+    "mode": "dsl"
+  },
+  {
+    "role": "user",
+    "content": "what's up",
+    "mode": "raw"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey there! Not much on my end, just here and ready to help.\n\nHow about you? What's on your mind or what can I assist you with today?",
+    "mode": "raw"
+  },
+  {
+    "role": "user",
+    "content": "what's up",
+    "mode": "raw"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey there! Not much on my end, just here and ready to assist!\n\nWhat's on your mind or how can I help you today?",
+    "mode": "raw"
+  },
+  {
+    "role": "user",
+    "content": "give me the square root of 25\n/OUT just a number\n/AS sq25\n\n/THEN Give me 10 + whatever number is input\n/FROM @sq25\n/OUT just a number",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "15",
+    "mode": "dsl"
+  },
+  {
+    "role": "user",
+    "content": "give me the square root of 25\n/OUT just a number\n/AS sq25\n\n/THEN Give me 10 + whatever number is input\n/FROM @sq25\n\n/THEN give me 25 * whatever number is input\n/FROM @sq25",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "15\n\n125",
+    "mode": "dsl"
+  },
+  {
+    "role": "user",
+    "content": "give me the square root of 25\n/OUT just a number\n/AS sq25\n\n/THEN Give me 10 + whatever number is input\n/FROM @sq25\n\n/THEN give me 25 * whatever number is input\n/FROM @sq25",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "15",
+    "mode": "dsl"
+  },
+  {
+    "role": "assistant",
+    "content": "125",
+    "mode": "dsl"
+  }
+]

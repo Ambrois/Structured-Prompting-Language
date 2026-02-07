@@ -1,0 +1,13 @@
+transcribe the TOC
+/FROM @read_pdf(book)
+/OUT table of contents
+/AS @toc
+
+/THEN infer the page offset
+/FROM @toc
+/OUT page offset
+/AS page_offset
+
+/THEN write script
+/FROM @toc, @page_offset
+/OUT py_file
