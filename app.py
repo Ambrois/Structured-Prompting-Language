@@ -234,7 +234,7 @@ use_gemini = True
 if mode == "Parse + Execute":
     use_gemini = st.toggle("Use Gemini executor", value=True)
 
-default_model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+default_model = os.environ.get("GEMINI_MODEL", "gemini-3-flash-preview")
 model_options = [
     ("Gemini 2.5 Flash", "gemini-2.5-flash"),
     ("Gemini 3 Flash (preview)", "gemini-3-flash-preview"),

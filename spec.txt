@@ -39,7 +39,7 @@ Inputs
 - Empty context dict to start
 - Gemini API key from GEMINI_API_KEY
 - Request timeout configurable (UI) or via GEMINI_TIMEOUT env var
-- Model configurable in UI (Gemini 2.5 Flash, Gemini 3 Flash (preview), Gemini 3 Pro (preview))
+- Model configurable in UI (Gemini 2.5 Flash, Gemini 3 Flash (preview), Gemini 3 Pro (preview)); default is Gemini 3 Flash (preview)
 
 / FROM handling
 - Only items starting with @ are treated as variable references.
