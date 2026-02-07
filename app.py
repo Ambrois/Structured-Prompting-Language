@@ -8,6 +8,7 @@ import streamlit as st
 from example_parser import ParseError, parse_dsl, _steps_to_dicts
 from executor import execute_steps, execute_steps_stub
 from gemini_client import call_gemini
+from keypress_component import ctrl_enter_submit
 from state_store import load_chats, save_chats
 
 
@@ -59,6 +60,15 @@ def _clear_dsl_input() -> None:
 
 def _clear_raw_input() -> None:
     st.session_state["raw_input"] = ""
+
+def _submit_triggered(tick: int) -> bool:
+    if tick <= 0:
+        return False
+    last = st.session_state.get("last_submit_tick", 0)
+    if tick != last:
+        st.session_state["last_submit_tick"] = tick
+        return True
+    return False
 
 
 def _run_dsl(
@@ -271,6 +281,9 @@ chat_slot = st.container()
 chat_history = active_chat["history"]
 chat_vars = active_chat["vars"]
 
+submit_tick = ctrl_enter_submit()
+submit_from_hotkey = _submit_triggered(submit_tick)
+
 st.subheader("Input")
 if mode == "Parse + Execute":
     with st.form("dsl_form", clear_on_submit=False):
@@ -283,7 +296,7 @@ if mode == "Parse + Execute":
         st.caption("Hint: use /THEN to start a new step (not /NEXT).")
         run = st.form_submit_button("Run", type="primary")
 
-    if run:
+    if run or submit_from_hotkey:
         _run_dsl(
             input_text, use_gemini, timeout_s, selected_model, chat_history, chat_vars, state
         )
@@ -299,7 +312,7 @@ else:
         )
         send = st.form_submit_button("Send", type="primary")
 
-    if send:
+    if send or submit_from_hotkey:
         _run_raw(raw_text, timeout_s, selected_model, chat_history, state)
 
     st.button("Clear input", key="clear_raw_input", on_click=_clear_raw_input)

@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script src="https://unpkg.com/streamlit-component-lib@1.5.0/dist/index.js"></script>
+    <style>
+      body { margin: 0; }
+    </style>
+  </head>
+  <body>
+    <script>
+      const { Streamlit } = window.streamlitComponentLib;
+      let count = 0;
+
+      function notify() {
+        count += 1;
+        Streamlit.setComponentValue(count);
+      }
+
+      function onKeydown(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+          e.preventDefault();
+          notify();
+        }
+      }
+
+      window.addEventListener("keydown", onKeydown);
+      Streamlit.setComponentReady();
+      Streamlit.setFrameHeight(0);
+    </script>
+  </body>
+</html>
