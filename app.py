@@ -53,6 +53,14 @@ def _rename_chat(chat_id: str) -> None:
     save_chats(state)
 
 
+def _clear_dsl_input() -> None:
+    st.session_state["dsl_input"] = ""
+
+
+def _clear_raw_input() -> None:
+    st.session_state["raw_input"] = ""
+
+
 def _run_dsl(
     input_text: str,
     use_gemini: bool,
@@ -280,9 +288,7 @@ if mode == "Parse + Execute":
             input_text, use_gemini, timeout_s, selected_model, chat_history, chat_vars, state
         )
 
-    if st.button("Clear input", key="clear_dsl_input"):
-        st.session_state["dsl_input"] = ""
-        st.rerun()
+    st.button("Clear input", key="clear_dsl_input", on_click=_clear_dsl_input)
 else:
     with st.form("raw_form", clear_on_submit=False):
         raw_text = st.text_area(
@@ -296,9 +302,7 @@ else:
     if send:
         _run_raw(raw_text, timeout_s, selected_model, chat_history, state)
 
-    if st.button("Clear input", key="clear_raw_input"):
-        st.session_state["raw_input"] = ""
-        st.rerun()
+    st.button("Clear input", key="clear_raw_input", on_click=_clear_raw_input)
 
 last_runs = st.session_state.get("last_run_by_chat", {})
 active_last_run = last_runs.get(active_chat["id"])
