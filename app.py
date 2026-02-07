@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import uuid
 import json
+import math
 
 import streamlit as st
 
@@ -420,15 +421,25 @@ with st.sidebar:
     st.header("Chats")
 
     chats = state.get("chats", [])
+    page_size = 20
+    if "chat_page" not in st.session_state:
+        st.session_state["chat_page"] = 0
+    total_pages = max(1, math.ceil(len(chats) / page_size))
+    if st.session_state["chat_page"] > total_pages - 1:
+        st.session_state["chat_page"] = total_pages - 1
 
     if st.button("New chat", use_container_width=True):
         chat = _new_chat(f"New Chat {len(chats) + 1}")
         chats.append(chat)
         state["active_chat_id"] = chat["id"]
+        st.session_state["chat_page"] = (len(chats) - 1) // page_size
         save_chats(state)
         st.rerun()
 
-    for chat in chats:
+    start_idx = st.session_state["chat_page"] * page_size
+    end_idx = start_idx + page_size
+
+    for chat in chats[start_idx:end_idx]:
         chat_id = chat.get("id")
         chat_name = chat.get("name", chat_id)
         is_active = chat_id == state.get("active_chat_id")
@@ -471,13 +482,35 @@ with st.sidebar:
                     save_chats(state)
                     st.rerun()
 
-                    if st.button(
-                        "Delete", key=f"delete_{chat_id}", use_container_width=True
-                    ):
-                        chats[:] = [c for c in chats if c.get("id") != chat_id]
-                        _ensure_active_chat(state)
-                        save_chats(state)
-                        st.rerun()
+                if st.button(
+                    "Delete", key=f"delete_{chat_id}", use_container_width=True
+                ):
+                    chats[:] = [c for c in chats if c.get("id") != chat_id]
+                    _ensure_active_chat(state)
+                    save_chats(state)
+                    st.rerun()
+
+    pager_cols = st.columns([0.25, 0.5, 0.25], vertical_alignment="center")
+    with pager_cols[0]:
+        if st.button(
+            "‹",
+            key="chats_prev",
+            use_container_width=True,
+            disabled=st.session_state["chat_page"] == 0,
+        ):
+            st.session_state["chat_page"] -= 1
+            st.rerun()
+    with pager_cols[1]:
+        st.caption(f"{st.session_state['chat_page'] + 1}/{total_pages}")
+    with pager_cols[2]:
+        if st.button(
+            "›",
+            key="chats_next",
+            use_container_width=True,
+            disabled=st.session_state["chat_page"] >= total_pages - 1,
+        ):
+            st.session_state["chat_page"] += 1
+            st.rerun()
 
     st.divider()
 
