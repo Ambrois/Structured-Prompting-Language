@@ -293,8 +293,10 @@ if mode == "Parse + Execute":
             help="Tip: Ctrl+Enter to run",
             key="dsl_input",
         )
-        st.caption("Hint: use /THEN to start a new step (not /NEXT).")
         run = st.form_submit_button("Run", type="primary")
+
+    if "/NEXT" in input_text:
+        st.warning("You used /NEXT. Use /THEN to start a new step.")
 
     if run or submit_from_hotkey:
         _run_dsl(
