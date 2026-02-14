@@ -196,6 +196,14 @@ div[data-baseweb="popover"] {
   min-width: 0 !important;
   width: fit-content !important;
   max-width: min(90vw, 22rem) !important;
+  background: var(--gb-bg-1) !important;
+  border: 1px solid var(--gb-bg-3) !important;
+  color: var(--gb-fg) !important;
+}
+
+div[data-baseweb="popover"] > div {
+  background: var(--gb-bg-1) !important;
+  color: var(--gb-fg) !important;
 }
 
 div[data-baseweb="popover"] [data-testid="stVerticalBlock"] {
