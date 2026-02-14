@@ -499,6 +499,9 @@ st.session_state.setdefault("edit_target_message_id", None)
 st.session_state.setdefault("versions_target_chat_id", None)
 st.session_state.setdefault("versions_target_thread_id", None)
 st.session_state.setdefault("versions_open", False)
+st.session_state.setdefault("copy_target_chat_id", None)
+st.session_state.setdefault("copy_target_message_id", None)
+st.session_state.setdefault("copy_open", False)
 
 def _new_chat(name: str) -> dict:
     safe_name = name.strip() or "Untitled"
@@ -573,6 +576,12 @@ def _open_versions_for_thread(thread_id: str, active_chat_id: str) -> None:
     st.session_state["versions_target_chat_id"] = active_chat_id
     st.session_state["versions_target_thread_id"] = thread_id
     st.session_state["versions_open"] = True
+
+
+def _open_copy_for_message(msg: dict, active_chat_id: str) -> None:
+    st.session_state["copy_target_chat_id"] = active_chat_id
+    st.session_state["copy_target_message_id"] = msg.get("id")
+    st.session_state["copy_open"] = True
 
 def _format_var_preview(value: object, max_len: int = 140) -> str:
     if isinstance(value, str):
@@ -1070,6 +1079,22 @@ if dialog_available:
             st.session_state["versions_open"] = False
             st.rerun()
 
+    @st.dialog("Copy Message")
+    def _copy_dialog() -> None:
+        target_chat_id = st.session_state.get("copy_target_chat_id")
+        target_message_id = st.session_state.get("copy_target_message_id")
+        if target_chat_id != active_chat.get("id") or not target_message_id:
+            st.info("Open copy from a message in the active chat.")
+            return
+
+        msg = _find_message_by_id(chat_history, target_message_id)
+        if msg is None:
+            st.info("Message not found.")
+            return
+
+        st.caption("Use the copy icon on the code block:")
+        st.code(str(msg.get("content", "")), language="text")
+
 if draft_fullscreen:
     # Treat fullscreen as a one-shot open request so it doesn't reopen on
     # unrelated reruns (e.g., creating a new chat).
@@ -1088,6 +1113,13 @@ if st.session_state.get("versions_open", False):
         _versions_dialog()
     else:
         st.info("Versions view requires a newer Streamlit version.")
+
+if st.session_state.get("copy_open", False):
+    st.session_state["copy_open"] = False
+    if dialog_available:
+        _copy_dialog()
+    else:
+        st.info("Copy dialog requires a newer Streamlit version.")
 
 chat_slot = st.container()
 
@@ -1188,20 +1220,26 @@ with chat_slot:
                             msg_meta = msg.get("meta", {})
                             thread_id = msg_meta.get("thread_id") or msg.get("id")
                             if st.button(
-                                "Edit & Resend",
+                                "Edit",
                                 key=f"edit_{active_chat['id']}_{msg_id}",
-                                use_container_width=True,
+                                help="Edit message",
+                                use_container_width=False,
                             ):
                                 _start_edit_from_message(msg, active_chat.get("id"))
                                 st.rerun()
                             if thread_id and st.button(
                                 "Versions",
                                 key=f"versions_{active_chat['id']}_{msg_id}",
-                                use_container_width=True,
+                                use_container_width=False,
                             ):
                                 _open_versions_for_thread(thread_id, active_chat.get("id"))
                                 st.rerun()
-                            st.caption("Copy DSL")
-                            st.code(str(content), language="text")
+                            if st.button(
+                                "Copy",
+                                key=f"copy_{active_chat['id']}_{msg_id}",
+                                use_container_width=False,
+                            ):
+                                _open_copy_for_message(msg, active_chat.get("id"))
+                                st.rerun()
                 else:
                     st.write(content)
