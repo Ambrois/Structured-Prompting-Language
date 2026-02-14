@@ -1150,40 +1150,35 @@ with chat_slot:
                             st.write("No details available.")
             else:
                 if msg.get("mode") == "dsl":
-                    cols = st.columns([0.9, 0.1])
-                    with cols[0]:
-                        st.write(content)
-                    with cols[1]:
-                        popover = getattr(st, "popover", None)
-                        if popover:
-                            menu_ctx = popover("⋮")
-                        else:
-                            menu_ctx = st.expander("⋮", expanded=False)
-                        with menu_ctx:
-                            msg_id = str(msg.get("id", idx))
-                            msg_meta = msg.get("meta", {})
-                            thread_id = msg_meta.get("thread_id") or msg.get("id")
-                            if st.button(
-                                "Edit",
-                                key=f"edit_{active_chat['id']}_{msg_id}",
-                                help="Edit message",
-                                use_container_width=False,
-                            ):
-                                _start_edit_from_message(msg, active_chat.get("id"))
-                                st.rerun()
-                            if thread_id and st.button(
-                                "Versions",
-                                key=f"versions_{active_chat['id']}_{msg_id}",
-                                use_container_width=False,
-                            ):
-                                _open_versions_for_thread(thread_id, active_chat.get("id"))
-                                st.rerun()
-                            if st.button(
-                                "Copy",
-                                key=f"copy_{active_chat['id']}_{msg_id}",
-                                use_container_width=False,
-                            ):
-                                _open_copy_for_message(msg, active_chat.get("id"))
-                                st.rerun()
+                    st.write(content)
+                    msg_id = str(msg.get("id", idx))
+                    msg_meta = msg.get("meta", {})
+                    thread_id = msg_meta.get("thread_id") or msg.get("id")
+                    action_cols = st.columns(3)
+                    with action_cols[0]:
+                        if st.button(
+                            "Edit",
+                            key=f"edit_{active_chat['id']}_{msg_id}",
+                            help="Edit message",
+                            use_container_width=True,
+                        ):
+                            _start_edit_from_message(msg, active_chat.get("id"))
+                            st.rerun()
+                    with action_cols[1]:
+                        if thread_id and st.button(
+                            "Version",
+                            key=f"versions_{active_chat['id']}_{msg_id}",
+                            use_container_width=True,
+                        ):
+                            _open_versions_for_thread(thread_id, active_chat.get("id"))
+                            st.rerun()
+                    with action_cols[2]:
+                        if st.button(
+                            "Copy",
+                            key=f"copy_{active_chat['id']}_{msg_id}",
+                            use_container_width=True,
+                        ):
+                            _open_copy_for_message(msg, active_chat.get("id"))
+                            st.rerun()
                 else:
                     st.write(content)
