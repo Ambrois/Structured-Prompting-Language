@@ -119,7 +119,7 @@ small {
 
 div[data-testid="stChatMessage"],
 div[data-testid="stChatMessageContent"] {
-  background: var(--gb-bg-1);
+  background: transparent;
   border: none;
   border-radius: 14px;
   margin: 0.35rem 0;
@@ -129,7 +129,7 @@ div[data-testid="stChatMessageContent"] {
 
 div[data-testid="stChatMessage"][aria-label="user"],
 div[data-testid="stChatMessageContent"][aria-label="user"] {
-  background: var(--gb-bg-2);
+  background: transparent;
 }
 
 div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p,
@@ -208,7 +208,7 @@ div[data-baseweb="popover"] > div {
 
 div[data-testid="stChatMessage"] [data-testid="stPopover"] :is(button, [role="button"]),
 div[data-testid="stChatMessageContent"] [data-testid="stPopover"] :is(button, [role="button"]) {
-  background: var(--gb-bg-1) !important;
+  background: transparent !important;
   border: none !important;
   color: var(--gb-fg) !important;
   box-shadow: none !important;
@@ -436,13 +436,13 @@ div[data-testid="stBottomBlockContainer"] > div {
 
 div[data-testid="stChatMessage"],
 div[data-testid="stChatMessageContent"] {
-  border: 1px solid #d2c3a5;
-  box-shadow: 0 1px 0 rgba(96, 72, 45, 0.08);
+  border: none;
+  box-shadow: none;
 }
 
 div[data-testid="stChatMessage"][aria-label="user"],
 div[data-testid="stChatMessageContent"][aria-label="user"] {
-  border-color: #c5b18d;
+  border-color: transparent;
 }
 
 .stButton > button {
