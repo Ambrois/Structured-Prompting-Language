@@ -111,7 +111,6 @@ def build_response_schema(step: Step) -> ResponseSchema:
     props: Dict[str, Any] = {
         "error": {
             "type": "integer",
-            "enum": [0, 1],
         },
         "out": {
             "type": "string",
