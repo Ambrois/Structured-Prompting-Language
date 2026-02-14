@@ -778,11 +778,11 @@ with st.sidebar:
     if mode == "Use DSL":
         use_gemini = st.toggle("Run executor (turn off for debugging)", value=True)
 
-    default_model = os.environ.get("GEMINI_MODEL", "gemini-3.0-flash-preview")
+    default_model = os.environ.get("GEMINI_MODEL", "gemini-3-flash-preview")
     model_options = [
         ("Gemini 2.5 Flash", "gemini-2.5-flash"),
-        ("Gemini 3.0 Flash (preview)", "gemini-3.0-flash-preview"),
-        ("Gemini 3.0 Pro (preview)", "gemini-3.0-pro-preview"),
+        ("Gemini 3 Flash", "gemini-3-flash-preview"),
+        ("Gemini 3 Pro", "gemini-3-pro-preview"),
     ]
     model_ids = [m[1] for m in model_options]
     model_labels = [m[0] for m in model_options]
@@ -980,4 +980,7 @@ with chat_slot:
                         else:
                             st.write("No details available.")
             else:
-                st.write(content)
+                if msg.get("mode") == "dsl":
+                    st.code(content, language="text")
+                else:
+                    st.write(content)
