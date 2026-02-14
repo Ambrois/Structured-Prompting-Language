@@ -21,7 +21,7 @@ def _run_single_def(type_name: str, value: object) -> dict:
     execute_steps(
         steps,
         context=ctx,
-        call_model=lambda _: json.dumps({"error": 0, "out": "ok", "vars": {"x": value}}),
+        call_model=lambda *_: json.dumps({"error": 0, "out": "ok", "vars": {"x": value}}),
     )
     return ctx
 

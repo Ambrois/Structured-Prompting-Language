@@ -50,13 +50,29 @@ def test_prompt_without_from_uses_all_context_and_excludes_embedded_values() -> 
 
 def test_execute_steps_uses_built_prompts() -> None:
     steps = parse_dsl("One\n/THEN Two")
-    seen_prompts: list[str] = []
+    seen_calls: list[tuple[str, dict]] = []
 
-    def fake_model(prompt: str) -> str:
-        seen_prompts.append(prompt)
+    def fake_model(prompt: str, response_schema: dict) -> str:
+        seen_calls.append((prompt, response_schema))
         return json.dumps({"error": 0, "out": "ok"})
 
     _, logs, outputs = execute_steps(steps, context={}, call_model=fake_model)
-    assert len(seen_prompts) == 2
+    assert len(seen_calls) == 2
     assert len(logs) == 2
     assert outputs == ["ok", "ok"]
+
+
+def test_execute_steps_builds_step_response_schema() -> None:
+    steps = parse_dsl("Create\n/DEF score /TYPE float")
+    seen_schemas: list[dict] = []
+
+    def fake_model(_: str, response_schema: dict) -> str:
+        seen_schemas.append(response_schema)
+        return json.dumps({"error": 0, "out": "ok", "vars": {"score": 0.2}})
+
+    _, logs, _ = execute_steps(steps, context={}, call_model=fake_model)
+    schema = seen_schemas[0]
+    assert schema["type"] == "object"
+    assert "vars" in schema["properties"]
+    assert schema["properties"]["vars"]["properties"]["score"]["type"] == "number"
+    assert logs[0]["response_schema"]["properties"]["vars"]["required"] == ["score"]

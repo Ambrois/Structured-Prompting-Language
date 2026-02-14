@@ -6,7 +6,7 @@ import random
 import time
 import urllib.error
 import urllib.request
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 _DEFAULT_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
@@ -26,7 +26,10 @@ def _get_default_timeout() -> float:
 
 
 def call_gemini(
-    prompt: str, model: Optional[str] = None, timeout_s: Optional[float] = None
+    prompt: str,
+    model: Optional[str] = None,
+    timeout_s: Optional[float] = None,
+    response_schema: Optional[Dict[str, Any]] = None,
 ) -> str:
     if not isinstance(prompt, str) or prompt.strip() == "":
         raise ValueError("prompt must be a non-empty string")
@@ -38,6 +41,12 @@ def call_gemini(
     model_name = model or _DEFAULT_MODEL
     url = f"{_API_BASE}/models/{model_name}:generateContent"
 
+    generation_config: Dict[str, Any] = {
+        "responseMimeType": "application/json",
+    }
+    if response_schema is not None:
+        generation_config["responseSchema"] = response_schema
+
     payload = {
         "contents": [
             {
@@ -47,9 +56,7 @@ def call_gemini(
             }
         ],
         # Ask Gemini to emit JSON text directly to reduce markdown/prose drift.
-        "generationConfig": {
-            "responseMimeType": "application/json",
-        },
+        "generationConfig": generation_config,
     }
 
     req = urllib.request.Request(

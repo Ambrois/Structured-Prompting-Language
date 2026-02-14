@@ -26,7 +26,7 @@ streamlit run v0.2/app.py
 
 App modes:
 - `Stub`: no external model call; executor uses built-in JSON stub outputs.
-- `Gemini`: uses `GEMINI_API_KEY` and expects model output to follow v0.2 JSON contract.
+- `Gemini`: uses `GEMINI_API_KEY` and sends both `responseMimeType=application/json` and a per-step `responseSchema` generated from `/DEF` declarations.
 
 Implementation note: structured output schema enforcement is being integrated for Gemini mode.
 

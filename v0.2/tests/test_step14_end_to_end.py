@@ -38,7 +38,7 @@ def test_end_to_end_successful_multistep_flow() -> None:
         ]
     )
 
-    def fake_model(prompt: str) -> str:
+    def fake_model(prompt: str, _: dict) -> str:
         prompts.append(prompt)
         return next(responses)
 
@@ -71,7 +71,7 @@ def test_end_to_end_stops_after_runtime_error() -> None:
     )
     calls = {"count": 0}
 
-    def fake_model(_: str) -> str:
+    def fake_model(*_: object) -> str:
         calls["count"] += 1
         return next(responses)
 

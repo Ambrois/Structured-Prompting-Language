@@ -16,7 +16,7 @@ def test_run_dsl_text_success() -> None:
     res = run_dsl_text(
         "Create x\n/DEF x /TYPE int",
         context={},
-        call_model=lambda _: json.dumps({"error": 0, "out": "ok", "vars": {"x": 3}}),
+        call_model=lambda *_: json.dumps({"error": 0, "out": "ok", "vars": {"x": 3}}),
     )
     assert res.ok is True
     assert res.outputs == ["ok"]
@@ -37,7 +37,7 @@ def test_run_dsl_text_execution_error() -> None:
     res = run_dsl_text(
         "Create x\n/DEF x /TYPE int",
         context={},
-        call_model=lambda _: "not-json",
+        call_model=lambda *_: "not-json",
     )
     assert res.ok is False
     assert res.error is not None

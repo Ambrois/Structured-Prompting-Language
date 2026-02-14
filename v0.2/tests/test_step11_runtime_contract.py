@@ -20,7 +20,7 @@ def test_runtime_contract_accepts_valid_response_without_defs() -> None:
     ctx, logs, outputs = execute_steps(
         steps,
         context={},
-        call_model=lambda _: json.dumps({"error": 0, "out": "done"}),
+        call_model=lambda *_: json.dumps({"error": 0, "out": "done"}),
     )
     assert ctx == {}
     assert outputs == ["done"]
@@ -32,7 +32,7 @@ def test_runtime_contract_accepts_valid_response_with_defs() -> None:
     ctx, _, outputs = execute_steps(
         steps,
         context={},
-        call_model=lambda _: json.dumps({"error": 0, "out": "ok", "vars": {"x": 3}}),
+        call_model=lambda *_: json.dumps({"error": 0, "out": "ok", "vars": {"x": 3}}),
     )
     assert ctx["x"] == 3
     assert outputs == ["ok"]
@@ -53,7 +53,7 @@ def test_runtime_contract_rejects_invalid_base_responses(
 ) -> None:
     steps = parse_dsl("Write output")
     with pytest.raises(ValueError, match=err_substr):
-        execute_steps(steps, context={}, call_model=lambda _: response)
+        execute_steps(steps, context={}, call_model=lambda *_: response)
 
 
 @pytest.mark.parametrize(
@@ -71,7 +71,7 @@ def test_runtime_contract_rejects_invalid_def_payloads(
 ) -> None:
     steps = parse_dsl("Create value\n/DEF x")
     with pytest.raises(ValueError, match=err_substr):
-        execute_steps(steps, context={}, call_model=lambda _: response)
+        execute_steps(steps, context={}, call_model=lambda *_: response)
 
 
 def test_runtime_contract_rejects_error_equals_one_and_stops() -> None:
@@ -81,7 +81,7 @@ def test_runtime_contract_rejects_error_equals_one_and_stops() -> None:
         execute_steps(
             steps,
             context=ctx,
-            call_model=lambda _: json.dumps({"error": 1, "out": "failed", "vars": {"x": 1}}),
+            call_model=lambda *_: json.dumps({"error": 1, "out": "failed", "vars": {"x": 1}}),
         )
     assert ctx == {}
 
@@ -89,4 +89,4 @@ def test_runtime_contract_rejects_error_equals_one_and_stops() -> None:
 def test_runtime_contract_parse_error_includes_raw_snippet() -> None:
     steps = parse_dsl("Write output")
     with pytest.raises(ValueError, match="Raw response starts with:"):
-        execute_steps(steps, context={}, call_model=lambda _: "not-json")
+        execute_steps(steps, context={}, call_model=lambda *_: "not-json")

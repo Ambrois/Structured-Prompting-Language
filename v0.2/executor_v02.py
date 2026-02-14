@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, TypedDict
 
 from parser_v02 import Step
 
 
-ModelCall = Callable[[str], str]
+class ResponseSchema(TypedDict):
+    type: str
+    properties: Dict[str, Any]
+    required: List[str]
+
+
+ModelCall = Callable[[str, ResponseSchema], str]
 _REF_PATTERN = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
 
 
@@ -86,6 +92,52 @@ def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
         blocks.append('Example JSON shape:\n{"error": 0, "out": "done"}')
 
     return "\n\n".join(blocks).strip()
+
+
+def _schema_type_for_def(type_name: str) -> str:
+    t = type_name.lower()
+    if t in {"nat", "str"}:
+        return "string"
+    if t == "int":
+        return "integer"
+    if t == "float":
+        return "number"
+    if t == "bool":
+        return "boolean"
+    return "string"
+
+
+def build_response_schema(step: Step) -> ResponseSchema:
+    props: Dict[str, Any] = {
+        "error": {
+            "type": "integer",
+            "enum": [0, 1],
+        },
+        "out": {
+            "type": "string",
+        },
+    }
+    required = ["error", "out"]
+
+    if step.defs:
+        vars_props: Dict[str, Any] = {}
+        vars_required: List[str] = []
+        for spec in step.defs:
+            vars_props[spec.var_name] = {"type": _schema_type_for_def(spec.value_type)}
+            vars_required.append(spec.var_name)
+
+        props["vars"] = {
+            "type": "object",
+            "properties": vars_props,
+            "required": vars_required,
+        }
+        required.append("vars")
+
+    return {
+        "type": "object",
+        "properties": props,
+        "required": required,
+    }
 
 
 def _default_stub_response(step: Step) -> str:
@@ -202,10 +254,11 @@ def execute_steps(
 
     for st in steps:
         prompt = build_step_prompt(st, context)
+        response_schema = build_response_schema(st)
         if call_model is None:
             response = _default_stub_response(st)
         else:
-            response = call_model(prompt)
+            response = call_model(prompt, response_schema)
 
         parsed = _parse_runtime_response(response, st)
 
@@ -227,6 +280,7 @@ def execute_steps(
                 "start_line_no": st.start_line_no,
                 "text": st.text,
                 "prompt": prompt,
+                "response_schema": response_schema,
                 "raw_response": response,
                 "parsed_json": parsed,
                 "staged_updates": staged_updates,

@@ -23,7 +23,7 @@ def test_failed_step_does_not_partially_commit_its_vars() -> None:
         execute_steps(
             steps,
             context=ctx,
-            call_model=lambda _: json.dumps(
+            call_model=lambda *_: json.dumps(
                 {"error": 0, "out": "bad", "vars": {"a": 1, "b": "wrong"}}
             ),
         )
@@ -51,7 +51,7 @@ def test_execution_stops_after_runtime_failure_and_keeps_previous_step_vars() ->
     )
     calls = {"count": 0}
 
-    def fake_model(_: str) -> str:
+    def fake_model(*_: object) -> str:
         calls["count"] += 1
         return next(responses)
 
@@ -82,7 +82,7 @@ def test_execution_stops_on_error_equals_one_without_committing_failing_step() -
     )
     calls = {"count": 0}
 
-    def fake_model(_: str) -> str:
+    def fake_model(*_: object) -> str:
         calls["count"] += 1
         return next(responses)
 
