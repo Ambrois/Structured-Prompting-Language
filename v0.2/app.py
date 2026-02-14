@@ -402,62 +402,6 @@ div[data-testid="stChatMessageContent"][aria-label="user"] {
   background: #eddcb9;
 }
 
-[data-testid="stPopover"] button,
-[data-testid="stPopover"] [role="button"] {
-  background: #e8d8b8 !important;
-  border: 1px solid transparent !important;
-  box-shadow: none !important;
-  color: var(--gb-fg) !important;
-}
-
-[data-testid="stPopover"] button:hover,
-[data-testid="stPopover"] [role="button"]:hover {
-  background: #eddcb9 !important;
-}
-
-div[data-baseweb="popover"] {
-  background: #f2e5cc !important;
-  border: 1px solid #c6b08b !important;
-  color: var(--gb-fg) !important;
-}
-
-div[data-baseweb="popover"] * {
-  color: var(--gb-fg) !important;
-}
-
-div[data-baseweb="popover"] button,
-div[data-baseweb="popover"] [role="menuitem"] {
-  background: transparent !important;
-  border-color: #c6b08b !important;
-  color: var(--gb-fg) !important;
-}
-
-div[data-baseweb="popover"] button:hover,
-div[data-baseweb="popover"] [role="menuitem"]:hover {
-  background: #e8d8b8 !important;
-}
-
-[data-testid="stElementToolbar"] {
-  background: #efe4cc !important;
-  border: 1px solid #c6b08b !important;
-}
-
-[data-testid="stElementToolbar"] button {
-  background: transparent !important;
-  color: var(--gb-fg) !important;
-}
-
-[data-testid="stElementToolbar"] button:hover {
-  background: #e8d8b8 !important;
-}
-
-[data-testid="stPopover"] svg,
-div[data-baseweb="popover"] svg,
-[data-testid="stElementToolbar"] svg {
-  fill: var(--gb-fg) !important;
-  stroke: var(--gb-fg) !important;
-}
-
 div[data-baseweb="modal"] {
   background-color: rgba(75, 55, 31, 0.18);
 }
