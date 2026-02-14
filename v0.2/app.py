@@ -16,10 +16,12 @@ from gemini_client_v02 import call_gemini
 from state_store_v02 import load_chats, save_chats
 from versioning_v02 import (
     backfill_history_metadata,
+    cutoff_index_for_version_view,
     get_assistant_messages_for_run,
     get_thread_versions,
     new_message_id,
     next_version_for_thread,
+    project_visible_history,
 )
 
 
@@ -486,6 +488,8 @@ st.session_state.setdefault("versions_open", False)
 st.session_state.setdefault("copy_target_chat_id", None)
 st.session_state.setdefault("copy_target_message_id", None)
 st.session_state.setdefault("copy_open", False)
+st.session_state.setdefault("history_view_chat_id", None)
+st.session_state.setdefault("history_view_message_id", None)
 
 def _new_chat(name: str) -> dict:
     safe_name = name.strip() or "Untitled"
@@ -536,6 +540,16 @@ def _clear_draft() -> None:
 def _clear_edit_state() -> None:
     st.session_state["edit_target_chat_id"] = None
     st.session_state["edit_target_message_id"] = None
+
+
+def _clear_history_view() -> None:
+    st.session_state["history_view_chat_id"] = None
+    st.session_state["history_view_message_id"] = None
+
+
+def _set_history_view(message_id: str | None, active_chat_id: str) -> None:
+    st.session_state["history_view_chat_id"] = active_chat_id
+    st.session_state["history_view_message_id"] = message_id
 
 
 def _find_message_by_id(chat_history: list, message_id: str | None) -> dict | None:
@@ -611,23 +625,12 @@ def _run_dsl(
         st.error(f"Parse error: {e}")
         st.stop()
 
-    vars_before = dict(chat_vars)
-    ctx = dict(chat_vars)
-    try:
-        call_model = None
-        if use_gemini:
-            call_model = make_gemini_caller(model=model, timeout_s=timeout_s)
-        ctx, logs, outputs = execute_steps(steps, ctx, call_model=call_model)
-    except Exception as e:
-        st.error(f"Execution error: {e}")
-        st.stop()
-
-    steps_dicts = steps_to_dicts(steps)
-    run_id = new_message_id("run")
     user_message_id = new_message_id("msg")
+    run_id = new_message_id("run")
     thread_id = user_message_id
     version = 1
     edited_from_id = None
+    vars_before = dict(chat_vars)
 
     edited_from_msg = _find_message_by_id(chat_history, edited_from_message_id)
     if (
@@ -639,6 +642,21 @@ def _run_dsl(
         thread_id = src_meta.get("thread_id") or edited_from_msg.get("id") or user_message_id
         version = next_version_for_thread(chat_history, thread_id)
         edited_from_id = edited_from_msg.get("id")
+        src_vars_before = src_meta.get("vars_before")
+        if isinstance(src_vars_before, dict):
+            vars_before = dict(src_vars_before)
+
+    ctx = dict(vars_before)
+    try:
+        call_model = None
+        if use_gemini:
+            call_model = make_gemini_caller(model=model, timeout_s=timeout_s)
+        ctx, logs, outputs = execute_steps(steps, ctx, call_model=call_model)
+    except Exception as e:
+        st.error(f"Execution error: {e}")
+        st.stop()
+
+    steps_dicts = steps_to_dicts(steps)
 
     user_meta = {
         "thread_id": thread_id,
@@ -761,6 +779,12 @@ if (
     and st.session_state.get("edit_target_chat_id") != active_chat.get("id")
 ):
     _clear_edit_state()
+
+if (
+    st.session_state.get("history_view_chat_id") is not None
+    and st.session_state.get("history_view_chat_id") != active_chat.get("id")
+):
+    _clear_history_view()
 
 with st.sidebar:
     st.header("Chats")
@@ -957,9 +981,11 @@ with st.sidebar:
                 state,
                 edited_from_message_id=edit_source_id,
             )
+            _clear_history_view()
             _clear_edit_state()
         else:
             _run_raw(staging_text, timeout_s, selected_model, chat_history, state)
+            _clear_history_view()
 
 draft_fullscreen = st.session_state.get("draft_fullscreen", False)
 dialog_available = hasattr(st, "dialog")
@@ -1005,9 +1031,11 @@ if dialog_available:
                     state,
                     edited_from_message_id=edit_source_id,
                 )
+                _clear_history_view()
                 _clear_edit_state()
             else:
                 _run_raw(dialog_text, timeout_s, selected_model, chat_history, state)
+                _clear_history_view()
             st.session_state["draft_sync"] = st.session_state.get("draft_dialog", "")
             st.session_state["draft_fullscreen"] = False
             st.rerun()
@@ -1058,10 +1086,34 @@ if dialog_available:
             st.write("Vars After")
             st.json(vars_after)
 
-        if st.button("Edit This Version", type="primary", use_container_width=True):
-            _start_edit_from_message(selected_msg, active_chat.get("id"))
-            st.session_state["versions_open"] = False
-            st.rerun()
+        selected_msg_id = selected_msg.get("id")
+        viewing_selected = (
+            st.session_state.get("history_view_chat_id") == active_chat.get("id")
+            and st.session_state.get("history_view_message_id") == selected_msg_id
+        )
+        if viewing_selected:
+            st.caption("Current chat is showing this version's timeline.")
+
+        action_cols = st.columns(3)
+        with action_cols[0]:
+            if st.button(
+                "View This Version",
+                use_container_width=True,
+                disabled=viewing_selected,
+            ):
+                _set_history_view(selected_msg_id, active_chat.get("id"))
+                st.session_state["versions_open"] = False
+                st.rerun()
+        with action_cols[1]:
+            if st.button("View Latest", use_container_width=True):
+                _clear_history_view()
+                st.session_state["versions_open"] = False
+                st.rerun()
+        with action_cols[2]:
+            if st.button("Edit This Version", type="primary", use_container_width=True):
+                _start_edit_from_message(selected_msg, active_chat.get("id"))
+                st.session_state["versions_open"] = False
+                st.rerun()
 
     @st.dialog("Copy Message")
     def _copy_dialog() -> None:
@@ -1130,16 +1182,40 @@ if prompt:
             state,
             edited_from_message_id=edit_source_id,
         )
+        _clear_history_view()
         _clear_edit_state()
     else:
         _run_raw(prompt, timeout_s, selected_model, chat_history, state)
+        _clear_history_view()
 
 last_runs = st.session_state.get("last_run_by_chat", {})
 active_last_run = last_runs.get(active_chat["id"])
 
-if mode == "Use DSL" and active_last_run:
+history_view_msg = None
+history_view_cutoff = None
+if st.session_state.get("history_view_chat_id") == active_chat.get("id"):
+    history_view_message_id = st.session_state.get("history_view_message_id")
+    history_view_msg = _find_message_by_id(chat_history, history_view_message_id)
+    history_view_cutoff = cutoff_index_for_version_view(chat_history, history_view_message_id)
+
+display_history = project_visible_history(chat_history, cutoff_index=history_view_cutoff)
+
+if mode == "Use DSL":
+    vars_data = None
+    if history_view_msg is not None:
+        for msg in reversed(display_history):
+            if msg.get("role") == "user" and msg.get("mode") == "dsl":
+                meta = msg.get("meta", {})
+                if isinstance(meta.get("vars_after"), dict):
+                    vars_data = meta.get("vars_after")
+                    break
+        if vars_data is None:
+            vars_data = {}
+    elif active_last_run:
+        vars_data = active_last_run["vars"] or {}
+
+if mode == "Use DSL" and vars_data is not None:
     st.subheader("Variables")
-    vars_data = active_last_run["vars"] or {}
     if vars_data:
         rows = []
         for name in sorted(vars_data):
@@ -1155,8 +1231,20 @@ if mode == "Use DSL" and active_last_run:
     else:
         st.info("No variables yet.")
 
+if history_view_msg is not None:
+    view_meta = history_view_msg.get("meta", {})
+    view_version = view_meta.get("version", "?")
+    view_msg_id = str(history_view_msg.get("id", ""))[:10]
+    info_cols = st.columns([0.78, 0.22], vertical_alignment="center")
+    with info_cols[0]:
+        st.info(f"Viewing timeline at version v{view_version} ({view_msg_id}).")
+    with info_cols[1]:
+        if st.button("Back to Latest", use_container_width=True):
+            _clear_history_view()
+            st.rerun()
+
 with chat_slot:
-    for idx, msg in enumerate(chat_history):
+    for idx, msg in enumerate(display_history):
         role = msg.get("role", "assistant")
         content = msg.get("content", "")
         with st.chat_message(role):

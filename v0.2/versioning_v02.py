@@ -111,3 +111,92 @@ def get_assistant_messages_for_run(
         if meta.get("run_id") == run_id:
             out.append(msg)
     return out
+
+
+def find_message_index(history: List[Dict[str, Any]], message_id: str | None) -> int | None:
+    if not message_id:
+        return None
+    for idx, msg in enumerate(history):
+        if msg.get("id") == message_id:
+            return idx
+    return None
+
+
+def cutoff_index_for_version_view(
+    history: List[Dict[str, Any]], version_message_id: str | None
+) -> int:
+    """
+    Return the history cutoff for viewing the selected version's timeline.
+    The cutoff is the entry right before the next version of the same thread,
+    or the end of history if no newer version exists.
+    """
+    if not history:
+        return -1
+    msg_idx = find_message_index(history, version_message_id)
+    if msg_idx is None:
+        return len(history) - 1
+    msg = history[msg_idx]
+    if msg.get("role") != "user" or msg.get("mode") != "dsl":
+        return msg_idx
+    meta = msg.get("meta", {})
+    thread_id = meta.get("thread_id")
+    if not thread_id:
+        return msg_idx
+    for idx in range(msg_idx + 1, len(history)):
+        next_msg = history[idx]
+        if next_msg.get("role") != "user" or next_msg.get("mode") != "dsl":
+            continue
+        next_meta = next_msg.get("meta", {})
+        if next_meta.get("thread_id") == thread_id:
+            return idx - 1
+    return len(history) - 1
+
+
+def project_visible_history_indices(
+    history: List[Dict[str, Any]], cutoff_index: int | None = None
+) -> List[int]:
+    """
+    Project append-only history into the active timeline by applying each edit
+    (`edited_from_message_id`) as a suffix replacement.
+    """
+    if not history:
+        return []
+
+    last_idx = len(history) - 1 if cutoff_index is None else min(cutoff_index, len(history) - 1)
+    if last_idx < 0:
+        return []
+
+    visible_indices: List[int] = []
+    visible_pos_by_id: Dict[str, int] = {}
+
+    for idx, msg in enumerate(history):
+        if idx > last_idx:
+            break
+        if not isinstance(msg, dict):
+            continue
+
+        if msg.get("role") == "user" and msg.get("mode") == "dsl":
+            meta = msg.get("meta", {})
+            edited_from_id = meta.get("edited_from_message_id")
+            if isinstance(edited_from_id, str) and edited_from_id in visible_pos_by_id:
+                keep_pos = visible_pos_by_id[edited_from_id]
+                removed = visible_indices[keep_pos:]
+                for rem_idx in removed:
+                    rem_id = history[rem_idx].get("id")
+                    if isinstance(rem_id, str):
+                        visible_pos_by_id.pop(rem_id, None)
+                visible_indices = visible_indices[:keep_pos]
+
+        visible_indices.append(idx)
+        msg_id = msg.get("id")
+        if isinstance(msg_id, str):
+            visible_pos_by_id[msg_id] = len(visible_indices) - 1
+
+    return visible_indices
+
+
+def project_visible_history(
+    history: List[Dict[str, Any]], cutoff_index: int | None = None
+) -> List[Dict[str, Any]]:
+    indices = project_visible_history_indices(history, cutoff_index=cutoff_index)
+    return [history[idx] for idx in indices]
