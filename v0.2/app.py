@@ -557,6 +557,7 @@ def _approx_token_count(value: object) -> int:
             return 0
     return 0
 
+
 def _run_dsl(
     input_text: str,
     use_gemini: bool,
@@ -947,7 +948,7 @@ if mode == "Use DSL" and active_last_run:
         st.info("No variables yet.")
 
 with chat_slot:
-    for msg in chat_history:
+    for idx, msg in enumerate(chat_history):
         role = msg.get("role", "assistant")
         content = msg.get("content", "")
         with st.chat_message(role):
@@ -981,6 +982,17 @@ with chat_slot:
                             st.write("No details available.")
             else:
                 if msg.get("mode") == "dsl":
-                    st.code(content, language="text")
+                    cols = st.columns([0.9, 0.1])
+                    with cols[0]:
+                        st.write(content)
+                    with cols[1]:
+                        popover = getattr(st, "popover", None)
+                        if popover:
+                            menu_ctx = popover("⋮")
+                        else:
+                            menu_ctx = st.expander("⋮", expanded=False)
+                        with menu_ctx:
+                            st.caption("Copy DSL")
+                            st.code(str(content), language="text")
                 else:
                     st.write(content)
