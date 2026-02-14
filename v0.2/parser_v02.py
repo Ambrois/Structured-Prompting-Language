@@ -217,6 +217,18 @@ def _populate_step_fields(step: Step, sigil: str) -> None:
     step.out_text = "\n".join(out_lines) if out_lines else None
 
 
+def _finalize_step(builder: _StepBuilder, steps: List[Step], sigil: str) -> None:
+    step = builder.build()
+    if step is None:
+        return
+    if step.text.strip() == "":
+        raise ParseError(
+            f"Step {step.index} (line {step.start_line_no}): instruction text is required before commands"
+        )
+    _populate_step_fields(step, sigil=sigil)
+    steps.append(step)
+
+
 def parse_dsl(text: str, sigil: str = "@") -> List[Step]:
     """Parse DSL text into steps with raw commands and Step-2/Step-4 structured fields."""
     if not isinstance(text, str):
@@ -233,10 +245,7 @@ def parse_dsl(text: str, sigil: str = "@") -> List[Step]:
         if cmd is not None:
             name, payload = cmd
             if name == "THEN":
-                step = builder.build()
-                if step is not None:
-                    _populate_step_fields(step, sigil=sigil)
-                    steps.append(step)
+                _finalize_step(builder, steps, sigil=sigil)
                 builder = _StepBuilder(index=len(steps), start_line_no=line_no)
                 if payload:
                     builder.text_lines.append(payload)
@@ -245,12 +254,13 @@ def parse_dsl(text: str, sigil: str = "@") -> List[Step]:
             builder.commands.append(Command(name=name, payload=payload, line_no=line_no))
             continue
 
+        if builder.commands and line.strip():
+            raise ParseError(
+                f"Line {line_no}: instruction text must appear before commands within a step"
+            )
         builder.text_lines.append(line)
 
-    final_step = builder.build()
-    if final_step is not None:
-        _populate_step_fields(final_step, sigil=sigil)
-        steps.append(final_step)
+    _finalize_step(builder, steps, sigil=sigil)
     return steps
 
 
