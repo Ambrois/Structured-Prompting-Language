@@ -206,13 +206,15 @@ div[data-baseweb="popover"] .stButton > button {
   white-space: nowrap;
 }
 
-div[data-baseweb="popover"] [role="menuitem"] {
+div[data-baseweb="popover"] :is(button, [role="button"], [role="menuitem"]) {
   background: var(--gb-bg-2) !important;
+  background-color: var(--gb-bg-2) !important;
   border: 1px solid var(--gb-bg-3) !important;
   color: var(--gb-fg) !important;
+  box-shadow: none !important;
 }
 
-div[data-baseweb="popover"] [role="menuitem"]:hover {
+div[data-baseweb="popover"] :is(button, [role="button"], [role="menuitem"]):hover {
   border-color: var(--gb-yellow) !important;
 }
 
@@ -428,13 +430,15 @@ div[data-testid="stChatMessageContent"][aria-label="user"] {
   background: #eddcb9;
 }
 
-div[data-baseweb="popover"] [role="menuitem"] {
+div[data-baseweb="popover"] :is(button, [role="button"], [role="menuitem"]) {
   background: #e8d8b8 !important;
+  background-color: #e8d8b8 !important;
   border: 1px solid #c6b08b !important;
   color: var(--gb-fg) !important;
+  box-shadow: none !important;
 }
 
-div[data-baseweb="popover"] [role="menuitem"]:hover {
+div[data-baseweb="popover"] :is(button, [role="button"], [role="menuitem"]):hover {
   background: #eddcb9 !important;
 }
 
