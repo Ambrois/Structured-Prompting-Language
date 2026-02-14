@@ -59,6 +59,60 @@ class _StepBuilder:
 _THEN_PATTERN = re.compile(r"^\s*/THEN(?:\s+(.*))?$")
 
 
+def _split_csv_items(payload: str) -> List[str]:
+    return [item.strip() for item in payload.split(",") if item.strip()]
+
+
+def _parse_def_payload(payload: str, line_no: int) -> DefSpec:
+    text = payload.strip()
+    if not text:
+        return DefSpec(var_name="", line_no=line_no)
+
+    parts = text.split(None, 1)
+    var_name = parts[0]
+    rest = parts[1] if len(parts) > 1 else ""
+    value_type = "nat"
+    as_text: Optional[str] = None
+
+    markers = list(re.finditer(r"/(TYPE|AS)\b", rest))
+    for i, marker in enumerate(markers):
+        key = marker.group(1).upper()
+        seg_start = marker.end()
+        seg_end = markers[i + 1].start() if i + 1 < len(markers) else len(rest)
+        value = rest[seg_start:seg_end].strip()
+        if key == "TYPE" and value:
+            value_type = value
+        elif key == "AS":
+            as_text = value
+
+    return DefSpec(var_name=var_name, value_type=value_type, as_text=as_text, line_no=line_no)
+
+
+def _populate_step_fields(step: Step, sigil: str) -> None:
+    from_vars: Optional[List[str]] = None
+    defs: List[DefSpec] = []
+    out_lines: List[str] = []
+
+    for cmd in step.commands:
+        name = cmd.name.upper()
+        if name == "FROM":
+            vars_out: List[str] = []
+            for item in _split_csv_items(cmd.payload):
+                token = item
+                if token.startswith(sigil):
+                    token = token[len(sigil):].strip()
+                vars_out.append(token)
+            from_vars = vars_out
+        elif name == "DEF":
+            defs.append(_parse_def_payload(cmd.payload, cmd.line_no))
+        elif name == "OUT":
+            out_lines.append(cmd.payload)
+
+    step.from_vars = from_vars
+    step.defs = defs
+    step.out_text = "\n".join(out_lines) if out_lines else None
+
+
 def parse_dsl(text: str, sigil: str = "@") -> List[Step]:
     """
     Step 1 scaffold parser:
@@ -80,6 +134,7 @@ def parse_dsl(text: str, sigil: str = "@") -> List[Step]:
         if then_match:
             step = builder.build()
             if step is not None:
+                _populate_step_fields(step, sigil=sigil)
                 steps.append(step)
             builder = _StepBuilder(index=len(steps), start_line_no=line_no)
             inline_text = then_match.group(1)
@@ -98,6 +153,7 @@ def parse_dsl(text: str, sigil: str = "@") -> List[Step]:
 
     final_step = builder.build()
     if final_step is not None:
+        _populate_step_fields(final_step, sigil=sigil)
         steps.append(final_step)
     return steps
 
