@@ -208,7 +208,9 @@ div[data-baseweb="popover"] > div {
 
 div[data-testid="stChatMessage"] [data-testid="stPopover"] :is(button, [role="button"]),
 div[data-testid="stChatMessageContent"] [data-testid="stPopover"] :is(button, [role="button"]) {
-  background: var(--gb-bg-2) !important;
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)),
+    var(--gb-bg-2) !important;
   border: 1px solid var(--gb-bg-3) !important;
   color: var(--gb-fg) !important;
   box-shadow: none !important;
