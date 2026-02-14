@@ -1,4 +1,4 @@
-# Structured Prompting Language
+# Chat DSL
 
 Prototype for a natural-language-first DSL for LLM workflows with control flow and context management.
 
