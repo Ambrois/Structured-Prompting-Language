@@ -84,3 +84,9 @@ def test_runtime_contract_rejects_error_equals_one_and_stops() -> None:
             call_model=lambda _: json.dumps({"error": 1, "out": "failed", "vars": {"x": 1}}),
         )
     assert ctx == {}
+
+
+def test_runtime_contract_parse_error_includes_raw_snippet() -> None:
+    steps = parse_dsl("Write output")
+    with pytest.raises(ValueError, match="Raw response starts with:"):
+        execute_steps(steps, context={}, call_model=lambda _: "not-json")

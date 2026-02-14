@@ -45,7 +45,11 @@ def call_gemini(
                     {"text": prompt}
                 ]
             }
-        ]
+        ],
+        # Ask Gemini to emit JSON text directly to reduce markdown/prose drift.
+        "generationConfig": {
+            "responseMimeType": "application/json",
+        },
     }
 
     req = urllib.request.Request(

@@ -64,9 +64,26 @@ def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
     if step.out_text is not None:
         blocks.append(f"Output intent:\n{step.out_text}")
 
-    blocks.append("Return JSON with keys:\n- error: 0 or 1\n- out: natural-language string")
+    blocks.append(
+        "Output format requirements:\n"
+        "- Respond with ONLY a JSON object.\n"
+        "- Do not wrap JSON in markdown/code fences.\n"
+        "- Keys required in every response: error, out.\n"
+        "- error must be 0 or 1.\n"
+        "- out must be a natural-language JSON string."
+    )
     if step.defs:
-        blocks.append("Also include:\n- vars: object with all required variables")
+        blocks.append(
+            "Also include:\n"
+            "- vars: JSON object containing every required variable by exact name."
+        )
+        sample_vars = ", ".join([f'"{spec.var_name}": <{spec.value_type}>' for spec in step.defs])
+        blocks.append(
+            "Example JSON shape:\n"
+            f'{{"error": 0, "out": "done", "vars": {{{sample_vars}}}}}'
+        )
+    else:
+        blocks.append('Example JSON shape:\n{"error": 0, "out": "done"}')
 
     return "\n\n".join(blocks).strip()
 
@@ -85,8 +102,11 @@ def _parse_runtime_response(raw_response: str, step: Step) -> Dict[str, Any]:
     try:
         parsed = json.loads(raw_response)
     except json.JSONDecodeError as exc:
+        snippet = raw_response.strip().replace("\n", "\\n")
+        if len(snippet) > 220:
+            snippet = snippet[:220] + "..."
         raise ValueError(
-            f"Step {step.index} (line {step.start_line_no}): model response is not valid JSON"
+            f"Step {step.index} (line {step.start_line_no}): model response is not valid JSON. Raw response starts with: {snippet!r}"
         ) from exc
 
     if not isinstance(parsed, dict):

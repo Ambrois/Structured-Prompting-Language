@@ -32,7 +32,9 @@ def test_prompt_interpolates_embedded_refs_and_appends_non_embedded_inputs() -> 
     assert "- topic:" not in prompt
     assert "- summary (nat): concise summary for AI safety" in prompt
     assert "Output intent:\nreadable language" in prompt
-    assert "Return JSON with keys:" in prompt
+    assert "Output format requirements:" in prompt
+    assert "Respond with ONLY a JSON object." in prompt
+    assert "Do not wrap JSON in markdown/code fences." in prompt
 
 
 def test_prompt_without_from_uses_all_context_and_excludes_embedded_values() -> None:
@@ -43,6 +45,7 @@ def test_prompt_without_from_uses_all_context_and_excludes_embedded_values() -> 
     assert "Inputs:" in prompt
     assert "- tone: direct" in prompt
     assert "- topic:" not in prompt
+    assert 'Example JSON shape:\n{"error": 0, "out": "done"}' in prompt
 
 
 def test_execute_steps_uses_built_prompts() -> None:
