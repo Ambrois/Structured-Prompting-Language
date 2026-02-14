@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -50,7 +51,7 @@ def test_execute_steps_uses_built_prompts() -> None:
 
     def fake_model(prompt: str) -> str:
         seen_prompts.append(prompt)
-        return "ok"
+        return json.dumps({"error": 0, "out": "ok"})
 
     _, logs, outputs = execute_steps(steps, context={}, call_model=fake_model)
     assert len(seen_prompts) == 2

@@ -71,6 +71,66 @@ def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
     return "\n\n".join(blocks).strip()
 
 
+def _default_stub_response(step: Step) -> str:
+    payload: Dict[str, Any] = {
+        "error": 0,
+        "out": f"stub output for step {step.index}",
+    }
+    if step.defs:
+        payload["vars"] = {spec.var_name: f"stub value for {spec.var_name}" for spec in step.defs}
+    return json.dumps(payload)
+
+
+def _parse_runtime_response(raw_response: str, step: Step) -> Dict[str, Any]:
+    try:
+        parsed = json.loads(raw_response)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"Step {step.index} (line {step.start_line_no}): model response is not valid JSON"
+        ) from exc
+
+    if not isinstance(parsed, dict):
+        raise ValueError(
+            f"Step {step.index} (line {step.start_line_no}): model response must be a JSON object"
+        )
+
+    if "error" not in parsed or "out" not in parsed:
+        raise ValueError(
+            f"Step {step.index} (line {step.start_line_no}): response missing required keys 'error' and/or 'out'"
+        )
+
+    error_val = parsed["error"]
+    if error_val not in (0, 1):
+        raise ValueError(
+            f"Step {step.index} (line {step.start_line_no}): 'error' must be 0 or 1"
+        )
+
+    out_val = parsed["out"]
+    if not isinstance(out_val, str):
+        raise ValueError(
+            f"Step {step.index} (line {step.start_line_no}): 'out' must be a JSON string"
+        )
+
+    if step.defs:
+        vars_val = parsed.get("vars")
+        if not isinstance(vars_val, dict):
+            raise ValueError(
+                f"Step {step.index} (line {step.start_line_no}): response must include object key 'vars'"
+            )
+        missing = [spec.var_name for spec in step.defs if spec.var_name not in vars_val]
+        if missing:
+            raise ValueError(
+                f"Step {step.index} (line {step.start_line_no}): missing /DEF values in vars: {missing}"
+            )
+
+    if error_val == 1:
+        raise RuntimeError(
+            f"Step {step.index} (line {step.start_line_no}): model returned error=1"
+        )
+
+    return parsed
+
+
 def execute_steps(
     steps: List[Step],
     context: Dict[str, Any],
@@ -83,11 +143,18 @@ def execute_steps(
     for st in steps:
         prompt = build_step_prompt(st, context)
         if call_model is None:
-            response = f"stub output for step {st.index}"
+            response = _default_stub_response(st)
         else:
             response = call_model(prompt)
 
-        visible_outputs.append(response)
+        parsed = _parse_runtime_response(response, st)
+
+        if st.defs:
+            vars_payload = parsed["vars"]
+            for spec in st.defs:
+                context[spec.var_name] = vars_payload[spec.var_name]
+
+        visible_outputs.append(parsed["out"])
         logs.append(
             {
                 "step_index": st.index,
@@ -95,6 +162,7 @@ def execute_steps(
                 "text": st.text,
                 "prompt": prompt,
                 "raw_response": response,
+                "parsed_json": parsed,
             }
         )
 
