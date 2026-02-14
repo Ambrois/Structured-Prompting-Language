@@ -119,7 +119,7 @@ small {
 
 div[data-testid="stChatMessage"],
 div[data-testid="stChatMessageContent"] {
-  background: var(--gb-bg-1);
+  background: transparent;
   border: none;
   border-radius: 14px;
   margin: 0.35rem 0;
@@ -443,6 +443,13 @@ div[data-testid="stChatMessageContent"] {
 div[data-testid="stChatMessage"][aria-label="user"],
 div[data-testid="stChatMessageContent"][aria-label="user"] {
   border-color: #c5b18d;
+}
+
+div[data-testid="stChatMessage"]:not([aria-label="user"]),
+div[data-testid="stChatMessageContent"]:not([aria-label="user"]) {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 .stButton > button {
