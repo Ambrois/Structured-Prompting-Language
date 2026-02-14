@@ -59,6 +59,7 @@ class _StepBuilder:
 _COMMAND_PATTERN = re.compile(r"^\s*/([A-Za-z][A-Za-z0-9_]*)\b(?:\s+(.*))?$")
 _DEF_MARKER_PATTERN = re.compile(r"/(TYPE|AS)\b")
 _ALLOWED_TYPES = {"nat", "str", "int", "float", "bool"}
+_VAR_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _parse_command_line(line: str) -> Optional[tuple[str, str]]:
@@ -83,6 +84,12 @@ def _validate_type_name(type_name: str, line_no: int) -> str:
     return normalized
 
 
+def _validate_var_name(var_name: str, line_no: int, source: str) -> str:
+    if not _VAR_NAME_PATTERN.match(var_name):
+        raise ParseError(f"Line {line_no}: invalid variable name {var_name!r} in {source}")
+    return var_name
+
+
 @dataclass
 class _DefParseState:
     spec: DefSpec
@@ -96,7 +103,7 @@ def _parse_def_payload(payload: str, line_no: int) -> _DefParseState:
         raise ParseError(f"Line {line_no}: /DEF requires a variable name")
 
     parts = text.split(None, 1)
-    var_name = parts[0]
+    var_name = _validate_var_name(parts[0], line_no=line_no, source="/DEF")
     rest = parts[1] if len(parts) > 1 else ""
     state = _DefParseState(spec=DefSpec(var_name=var_name, value_type="nat", line_no=line_no))
 
@@ -165,9 +172,13 @@ def _populate_step_fields(step: Step, sigil: str) -> None:
         if name == "FROM":
             vars_out: List[str] = []
             for item in _split_csv_items(cmd.payload):
-                token = item
-                if token.startswith(sigil):
-                    token = token[len(sigil):].strip()
+                token = item.strip()
+                if not token.startswith(sigil):
+                    raise ParseError(
+                        f"Line {cmd.line_no}: /FROM expects variable references prefixed with {sigil!r}"
+                    )
+                token = token[len(sigil):].strip()
+                token = _validate_var_name(token, line_no=cmd.line_no, source="/FROM")
                 vars_out.append(token)
             from_vars = vars_out
             i += 1
