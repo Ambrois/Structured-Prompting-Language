@@ -669,6 +669,7 @@ def _run_dsl(
     use_gemini: bool,
     timeout_s: float,
     model: str | None,
+    cheap_model: str | None,
     chat_history: list,
     chat_vars: dict,
     state: dict,
@@ -709,9 +710,17 @@ def _run_dsl(
         chat_lines.append(input_text)
     try:
         call_model = None
+        cheap_model_call = None
         if use_gemini:
             call_model = make_gemini_caller(model=model, timeout_s=timeout_s)
-        ctx, logs, outputs = execute_steps(steps, ctx, call_model=call_model, chat_history=chat_lines)
+            cheap_model_call = make_gemini_caller(model=cheap_model, timeout_s=timeout_s)
+        ctx, logs, outputs = execute_steps(
+            steps,
+            ctx,
+            call_model=call_model,
+            chat_history=chat_lines,
+            cheap_model_call=cheap_model_call,
+        )
     except Exception as e:
         st.error(f"Execution error: {e}")
         st.stop()
@@ -976,6 +985,12 @@ with st.sidebar:
     model_index = model_ids.index(default_model) if default_model in model_ids else 0
     selected_label = st.selectbox("Model", model_labels, index=model_index)
     selected_model = model_options[model_labels.index(selected_label)][1]
+    default_cheap_model = os.environ.get("GEMINI_CHEAP_MODEL", "gemini-3-flash-preview")
+    cheap_model_index = (
+        model_ids.index(default_cheap_model) if default_cheap_model in model_ids else 0
+    )
+    cheap_selected_label = st.selectbox("Cheap Model", model_labels, index=cheap_model_index)
+    selected_cheap_model = model_options[model_labels.index(cheap_selected_label)][1]
 
     timeout_s = st.number_input(
         "Request timeout (seconds, 0 = no timeout)",
@@ -1039,6 +1054,7 @@ with st.sidebar:
                 use_gemini,
                 timeout_s,
                 selected_model,
+                selected_cheap_model,
                 chat_history,
                 chat_vars,
                 state,
@@ -1089,6 +1105,7 @@ if dialog_available:
                     use_gemini,
                     timeout_s,
                     selected_model,
+                    selected_cheap_model,
                     chat_history,
                     chat_vars,
                     state,
@@ -1240,6 +1257,7 @@ if prompt:
             use_gemini,
             timeout_s,
             selected_model,
+            selected_cheap_model,
             chat_history,
             chat_vars,
             state,

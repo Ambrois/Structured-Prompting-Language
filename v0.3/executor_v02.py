@@ -4,7 +4,7 @@ import json
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypedDict
 
-from parser_v02 import Step
+from parser_v02 import FromItem, Step
 
 
 class ResponseSchema(TypedDict):
@@ -14,6 +14,7 @@ class ResponseSchema(TypedDict):
 
 
 ModelCall = Callable[[str, ResponseSchema], str]
+CheapModelCall = Callable[[str], str]
 _REF_PATTERN = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
 _BUILTIN_VAR_NAMES = {"ALL", "CHAT"}
 
@@ -72,7 +73,11 @@ def _build_builtin_values(context: Dict[str, Any], chat_history: List[str]) -> D
     }
 
 
-def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
+def build_step_prompt(
+    step: Step,
+    context: Dict[str, Any],
+    nat_inputs: Optional[List[Tuple[str, str]]] = None,
+) -> str:
     accessible = _resolve_accessible_inputs(step, context)
     embedded: set[str] = set()
     embedded.update(_extract_refs(step.text))
@@ -89,11 +94,18 @@ def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
         if name not in embedded
         and (name not in _BUILTIN_VAR_NAMES or step.from_vars is None or name in explicit_from)
     ]
+    nat_inputs = list(nat_inputs or [])
     if extra_inputs:
         inputs_lines = "\n".join(
             f"- {name}: {_render_value(accessible[name])}" for name in extra_inputs
         )
         blocks.append(f"Inputs:\n{inputs_lines}")
+    if nat_inputs:
+        nat_lines = "\n".join(f"- {label}: {value}" for label, value in nat_inputs)
+        if extra_inputs:
+            blocks[-1] += "\n" + nat_lines
+        else:
+            blocks.append(f"Inputs:\n{nat_lines}")
 
     if step.defs:
         required_lines: List[str] = []
@@ -182,6 +194,37 @@ def _default_stub_response(step: Step) -> str:
     if step.defs:
         payload["vars"] = {spec.var_name: f"stub value for {spec.var_name}" for spec in step.defs}
     return json.dumps(payload)
+
+
+def _build_prefilter_prompt(description: str, scope_var: str, scope_text: str) -> str:
+    return (
+        "Task: extract matching content with minimal rewriting.\n\n"
+        f"Description:\n{description}\n\n"
+        f"Scope (@{scope_var}):\n{scope_text}\n\n"
+        "Rules:\n"
+        "- Return only text matching the description.\n"
+        "- Keep original wording/order when possible.\n"
+        "- Return plain text only.\n"
+        "- If nothing matches, return an empty string."
+    )
+
+
+def _run_prefilter(
+    item: FromItem,
+    runtime_context: Dict[str, Any],
+    cheap_model_call: Optional[CheapModelCall],
+) -> Tuple[str, str]:
+    scope_var = item.scope_var or "ALL"
+    scope_text = _render_value(runtime_context.get(scope_var, ""))
+    prompt = _build_prefilter_prompt(item.value, scope_var, scope_text)
+    if cheap_model_call is None:
+        filtered_text = scope_text
+    else:
+        filtered_text = cheap_model_call(prompt)
+    if not isinstance(filtered_text, str):
+        raise ValueError("cheap prefilter call must return a string")
+    label = f"{item.value} (from @{scope_var})"
+    return label, filtered_text
 
 
 def _parse_runtime_response(raw_response: str, step: Step) -> Dict[str, Any]:
@@ -282,6 +325,7 @@ def execute_steps(
     context: Dict[str, Any],
     call_model: Optional[ModelCall] = None,
     chat_history: Optional[List[str]] = None,
+    cheap_model_call: Optional[CheapModelCall] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[str]]:
     """Execute steps with prompt construction and model-call injection support."""
     logs: List[Dict[str, Any]] = []
@@ -291,7 +335,22 @@ def execute_steps(
     for st in steps:
         runtime_context = dict(context)
         runtime_context.update(_build_builtin_values(context, chat_lines + visible_outputs))
-        prompt = build_step_prompt(st, runtime_context)
+        nat_inputs: List[Tuple[str, str]] = []
+        prefilter_logs: List[Dict[str, str]] = []
+        for item in st.from_items or []:
+            if item.kind != "nat":
+                continue
+            label, filtered = _run_prefilter(item, runtime_context, cheap_model_call)
+            nat_inputs.append((label, filtered))
+            prefilter_logs.append(
+                {
+                    "description": item.value,
+                    "scope_var": item.scope_var or "ALL",
+                    "filtered_text": filtered,
+                }
+            )
+
+        prompt = build_step_prompt(st, runtime_context, nat_inputs=nat_inputs)
         response_schema = build_response_schema(st)
         if call_model is None:
             response = _default_stub_response(st)
@@ -322,6 +381,7 @@ def execute_steps(
                 "raw_response": response,
                 "parsed_json": parsed,
                 "staged_updates": staged_updates,
+                "prefilter_logs": prefilter_logs,
             }
         )
 
