@@ -351,7 +351,7 @@ On runtime error:
 - Variables persist across steps
 - Later `/DEF` may overwrite earlier variables
 - Only previously defined variables may be referenced
-- No optional types in v0.2
+- No optional types in v0.3
 
 ---
 

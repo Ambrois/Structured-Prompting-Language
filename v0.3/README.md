@@ -1,11 +1,11 @@
-# Chat DSL v0.2
+# Chat DSL v0.3
 
-This folder contains the v0.2 specification, parser/executor implementation, and tests.
-Checkpoint: UI parity migration with v0.1 layout is in progress.
+This folder contains the v0.3 specification, parser/executor implementation, and tests.
 
-- `spec_v0.2.md`: formal v0.2 language and runtime specification
-- `parser_v02.py`: parser for v0.2 command syntax and parse-time validation
-- `executor_v02.py`: executor for prompt building, JSON contract checks, type checks, and fail-fast runtime semantics
+- `spec_changes_from_last.md`: authoritative v0.3 updates from v0.2
+- `dsl_v0.3_specs.md`: compiled v0.3 aggregate spec
+- `parser_v02.py`: parser with v0.3 `/FROM` mixed items and `/IN` handling
+- `executor_v02.py`: executor with built-ins and cheap-model prefilter pipeline
 - `runtime_v02.py`: app-facing wrapper for parse + execute with structured success/error results
 - `gemini_client_v02.py`: Gemini HTTP client for optional live execution
 - `model_adapters_v02.py`: adapter builders for model callers
@@ -15,20 +15,22 @@ Checkpoint: UI parity migration with v0.1 layout is in progress.
 ## Run tests
 
 ```bash
-pytest -q v0.2/tests
+python -m pytest -q v0.3/tests
 ```
 
 ## Run app
 
 ```bash
-streamlit run v0.2/app.py
+streamlit run v0.3/app.py
 ```
 
 App modes:
 - `Stub`: no external model call; executor uses built-in JSON stub outputs.
-- `Gemini`: uses `GEMINI_API_KEY` and sends both `responseMimeType=application/json` and a per-step `responseSchema` generated from `/DEF` declarations.
+- `Gemini`: runs a main model call for each step and cheap-model prefilter calls for natural-language `/FROM` inputs.
 
-Implementation note: structured output schema enforcement is being integrated for Gemini mode.
+Model selection:
+- `Model`: main per-step model.
+- `Cheap Model`: prefilter model used for natural-language `/FROM` elements. Default: `gemini-3-flash-preview`.
 
 ## Multiline `/AS` in `/DEF`
 
