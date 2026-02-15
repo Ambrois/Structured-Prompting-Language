@@ -35,11 +35,10 @@ def test_valid_from_variable_references(from_item: str) -> None:
 @pytest.mark.parametrize(
     "dsl,err_substr",
     [
-        ("Write output\n/FROM x", "/FROM expects variable references"),
         ("Write output\n/FROM @", "invalid variable name"),
         ("Write output\n/FROM @1x", "invalid variable name"),
         ("Write output\n/FROM @x-y", "invalid variable name"),
-        ("Write output\n/FROM @x, y", "/FROM expects variable references"),
+        ("Write output\n/FROM desc /IN @x-y", "exactly one variable reference"),
     ],
 )
 def test_invalid_from_variable_references(dsl: str, err_substr: str) -> None:

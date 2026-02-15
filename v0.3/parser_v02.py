@@ -31,8 +31,16 @@ class Step:
     text: str
     commands: List[Command] = field(default_factory=list)
     from_vars: Optional[List[str]] = None
+    from_items: Optional[List["FromItem"]] = None
     defs: List[DefSpec] = field(default_factory=list)
     out_text: Optional[str] = None
+
+
+@dataclass
+class FromItem:
+    kind: str  # "var" | "nat"
+    value: str  # var name for kind="var", description text for kind="nat"
+    scope_var: Optional[str] = None  # only for kind="nat"; defaults to "ALL" downstream
 
 
 @dataclass
@@ -61,6 +69,7 @@ _DEF_MARKER_PATTERN = re.compile(r"/(TYPE|AS)\b")
 _ALLOWED_TYPES = {"nat", "str", "int", "float", "bool"}
 _VAR_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _KNOWN_COMMANDS = {"FROM", "DEF", "OUT", "TYPE", "AS"}
+_RESERVED_READONLY_VARS = {"ALL", "CHAT"}
 
 
 def _parse_command_line(line: str) -> Optional[tuple[str, str]]:
@@ -107,6 +116,38 @@ def _validate_var_name(var_name: str, line_no: int, source: str) -> str:
     return var_name
 
 
+def _parse_from_item(item: str, line_no: int, sigil: str) -> FromItem:
+    token = item.strip()
+    if not token:
+        raise ParseError(f"Line {line_no}: /FROM contains an empty item")
+
+    if token.startswith(sigil):
+        if "/IN" in token:
+            raise ParseError(f"Line {line_no}: /IN cannot be applied to variable references")
+        var_name = _validate_var_name(token[len(sigil) :].strip(), line_no=line_no, source="/FROM")
+        return FromItem(kind="var", value=var_name)
+
+    if token.startswith("/IN"):
+        raise ParseError(f"Line {line_no}: /IN requires a preceding natural-language description")
+
+    if "/IN" not in token:
+        return FromItem(kind="nat", value=token, scope_var="ALL")
+
+    desc, tail = token.split("/IN", 1)
+    desc = desc.strip()
+    tail = tail.strip()
+    if not desc:
+        raise ParseError(f"Line {line_no}: /IN requires a preceding natural-language description")
+    if not tail.startswith(sigil):
+        raise ParseError(f"Line {line_no}: /IN must be followed by exactly one variable reference")
+    scope_name = tail[len(sigil) :].strip()
+    if not _VAR_NAME_PATTERN.match(scope_name):
+        raise ParseError(f"Line {line_no}: /IN must be followed by exactly one variable reference")
+    if " " in scope_name:
+        raise ParseError(f"Line {line_no}: /IN must be followed by exactly one variable reference")
+    return FromItem(kind="nat", value=desc, scope_var=scope_name)
+
+
 @dataclass
 class _DefParseState:
     spec: DefSpec
@@ -121,6 +162,8 @@ def _parse_def_payload(payload: str, line_no: int) -> _DefParseState:
 
     parts = text.split(None, 1)
     var_name = _validate_var_name(parts[0], line_no=line_no, source="/DEF")
+    if var_name in _RESERVED_READONLY_VARS:
+        raise ParseError(f"Line {line_no}: {var_name!r} is a reserved read-only variable name")
     rest = parts[1] if len(parts) > 1 else ""
     state = _DefParseState(spec=DefSpec(var_name=var_name, value_type="nat", line_no=line_no))
 
@@ -179,6 +222,7 @@ def _apply_def_block_command(state: _DefParseState, cmd: Command) -> None:
 
 def _populate_step_fields(step: Step, sigil: str) -> None:
     from_vars: Optional[List[str]] = None
+    from_items: Optional[List[FromItem]] = None
     defs: List[DefSpec] = []
     out_lines: List[str] = []
 
@@ -188,16 +232,14 @@ def _populate_step_fields(step: Step, sigil: str) -> None:
         name = cmd.name.upper()
         if name == "FROM":
             vars_out: List[str] = []
+            items_out: List[FromItem] = []
             for item in _split_csv_items(cmd.payload):
-                token = item.strip()
-                if not token.startswith(sigil):
-                    raise ParseError(
-                        f"Line {cmd.line_no}: /FROM expects variable references prefixed with {sigil!r}"
-                    )
-                token = token[len(sigil):].strip()
-                token = _validate_var_name(token, line_no=cmd.line_no, source="/FROM")
-                vars_out.append(token)
+                parsed = _parse_from_item(item, line_no=cmd.line_no, sigil=sigil)
+                items_out.append(parsed)
+                if parsed.kind == "var":
+                    vars_out.append(parsed.value)
             from_vars = vars_out
+            from_items = items_out
             i += 1
             continue
 
@@ -230,6 +272,7 @@ def _populate_step_fields(step: Step, sigil: str) -> None:
         i += 1
 
     step.from_vars = from_vars
+    step.from_items = from_items
     step.defs = defs
     step.out_text = "\n".join(out_lines) if out_lines else None
 
@@ -266,7 +309,7 @@ def _extract_step_embedded_refs(step: Step, sigil: str) -> set[str]:
 
 
 def _validate_from_symbols(steps: List[Step], sigil: str) -> None:
-    known_vars: set[str] = set()
+    known_vars: set[str] = set(_RESERVED_READONLY_VARS)
     for step in steps:
         embedded_refs = _extract_step_embedded_refs(step, sigil=sigil)
         if step.from_vars is not None:
@@ -276,6 +319,14 @@ def _validate_from_symbols(steps: List[Step], sigil: str) -> None:
                     raise ParseError(
                         f"Step {step.index} (line {step.start_line_no}): /FROM references undefined variable {sigil}{name}"
                     )
+            if step.from_items:
+                for item in step.from_items:
+                    if item.kind == "nat":
+                        scope_name = item.scope_var or "ALL"
+                        if scope_name not in known_vars:
+                            raise ParseError(
+                                f"Step {step.index} (line {step.start_line_no}): /FROM references undefined variable {sigil}{scope_name}"
+                            )
             for name in sorted(embedded_refs):
                 if name not in allowed:
                     raise ParseError(
@@ -338,6 +389,10 @@ def steps_to_dicts(steps: List[Step]) -> List[Dict[str, Any]]:
             "start_line_no": st.start_line_no,
             "text": st.text,
             "from_vars": st.from_vars,
+            "from_items": [
+                {"kind": item.kind, "value": item.value, "scope_var": item.scope_var}
+                for item in (st.from_items or [])
+            ],
             "defs": [
                 {
                     "var_name": d.var_name,
