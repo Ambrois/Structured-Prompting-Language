@@ -1297,10 +1297,11 @@ if mode == "Use DSL":
 
 if mode == "Use DSL" and vars_data is not None:
     st.subheader("Variables")
-    if vars_data:
+    visible_vars = {k: v for k, v in vars_data.items() if k not in {"ALL", "CHAT"}}
+    if visible_vars:
         rows = []
-        for name in sorted(vars_data):
-            value = vars_data[name]
+        for name in sorted(visible_vars):
+            value = visible_vars[name]
             rows.append(
                 {
                     "Name": name,
