@@ -654,6 +654,16 @@ def _approx_token_count(value: object) -> int:
     return 0
 
 
+def _timeline_chat_lines(messages: list[dict]) -> list[str]:
+    lines: list[str] = []
+    for msg in messages:
+        role = msg.get("role")
+        content = msg.get("content")
+        if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
+            lines.append(content)
+    return lines
+
+
 def _run_dsl(
     input_text: str,
     use_gemini: bool,
@@ -694,11 +704,14 @@ def _run_dsl(
             vars_before = dict(src_vars_before)
 
     ctx = dict(vars_before)
+    chat_lines = _timeline_chat_lines(chat_history)
+    if input_text.strip():
+        chat_lines.append(input_text)
     try:
         call_model = None
         if use_gemini:
             call_model = make_gemini_caller(model=model, timeout_s=timeout_s)
-        ctx, logs, outputs = execute_steps(steps, ctx, call_model=call_model)
+        ctx, logs, outputs = execute_steps(steps, ctx, call_model=call_model, chat_history=chat_lines)
     except Exception as e:
         st.error(f"Execution error: {e}")
         st.stop()

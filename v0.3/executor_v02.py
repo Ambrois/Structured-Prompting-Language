@@ -15,6 +15,7 @@ class ResponseSchema(TypedDict):
 
 ModelCall = Callable[[str, ResponseSchema], str]
 _REF_PATTERN = re.compile(r"@([A-Za-z_][A-Za-z0-9_]*)")
+_BUILTIN_VAR_NAMES = {"ALL", "CHAT"}
 
 
 def _render_value(value: Any) -> str:
@@ -43,6 +44,34 @@ def _resolve_accessible_inputs(step: Step, context: Dict[str, Any]) -> Dict[str,
     return {name: context[name] for name in step.from_vars if name in context}
 
 
+def _render_chat_history_text(chat_history: List[str]) -> str:
+    lines = [line for line in chat_history if isinstance(line, str) and line.strip()]
+    if not lines:
+        return ""
+    return "\n\n".join(lines)
+
+
+def _build_builtin_values(context: Dict[str, Any], chat_history: List[str]) -> Dict[str, str]:
+    chat_text = _render_chat_history_text(chat_history)
+
+    vars_lines: List[str] = []
+    for name, value in context.items():
+        if name in _BUILTIN_VAR_NAMES:
+            continue
+        vars_lines.append(f"- {name}: {_render_value(value)}")
+
+    all_parts: List[str] = []
+    if chat_text:
+        all_parts.append(f"Chat history:\n{chat_text}")
+    if vars_lines:
+        all_parts.append("Variables:\n" + "\n".join(vars_lines))
+
+    return {
+        "CHAT": chat_text,
+        "ALL": "\n\n".join(all_parts).strip(),
+    }
+
+
 def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
     accessible = _resolve_accessible_inputs(step, context)
     embedded: set[str] = set()
@@ -53,7 +82,13 @@ def build_step_prompt(step: Step, context: Dict[str, Any]) -> str:
     instruction = _interpolate(step.text, accessible).strip()
     blocks: List[str] = [f"Instruction:\n{instruction}" if instruction else "Instruction:"]
 
-    extra_inputs = [name for name in accessible if name not in embedded]
+    explicit_from = set(step.from_vars or [])
+    extra_inputs = [
+        name
+        for name in accessible
+        if name not in embedded
+        and (name not in _BUILTIN_VAR_NAMES or step.from_vars is None or name in explicit_from)
+    ]
     if extra_inputs:
         inputs_lines = "\n".join(
             f"- {name}: {_render_value(accessible[name])}" for name in extra_inputs
@@ -246,13 +281,17 @@ def execute_steps(
     steps: List[Step],
     context: Dict[str, Any],
     call_model: Optional[ModelCall] = None,
+    chat_history: Optional[List[str]] = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]], List[str]]:
     """Execute steps with prompt construction and model-call injection support."""
     logs: List[Dict[str, Any]] = []
     visible_outputs: List[str] = []
+    chat_lines = list(chat_history or [])
 
     for st in steps:
-        prompt = build_step_prompt(st, context)
+        runtime_context = dict(context)
+        runtime_context.update(_build_builtin_values(context, chat_lines + visible_outputs))
+        prompt = build_step_prompt(st, runtime_context)
         response_schema = build_response_schema(st)
         if call_model is None:
             response = _default_stub_response(st)
